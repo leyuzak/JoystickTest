@@ -1,6 +1,9 @@
 #ifndef JOYSTICK
 #define JOYSTICK
 #include <linux/joystick.h>
+#include <mutex>
+#include <atomic>
+#include <thread>
 
 enum Button {
     BUTTON_1     = 0,
@@ -32,15 +35,40 @@ enum Axes {
 class Joystick {
     private:
         /**
+         * This is a file descripter it will taken from open() and
+         * it is necessary for read() methods which both are going to use joystick's data.
+         */
+        int js_fd;
+
+        /**
+         * This thread will listen data from joystick asynchronously by using read() and 
+         * joystick::parse_event_data() in a while loop.
+         */
+        std::thread listening_thread;
+
+        /**
          * This struct necessary to read data by `<linux/joystick.h>`
          */
         struct js_event event;
+
+        /**
+         * This used since program both listens to joystick and make able user to read it. Both things do not run at same time. 
+         * By this mutex, these process work in harmony, they do not crash each other.
+         */
+        std::mutex data_mutex;
+
+        /**
+         * This atomic boolean indicates whether joystick is listening now.
+         * If this is false: You will be able to read data
+         * If this is true: Yo will be wait to read data since prevent to race condition. 
+         */
+        std::atomic<bool> data_listen_flag;
     
         /**
-         * An array that holds buttons states on boolean array with 16 elements which
-         * presents buttons on Logitech Extreme Pro 3D joystick respectively.
+         * An array that holds buttons states on boolean array with 16 elements which these first 12 elements
+         * presents buttons on Logitech Extreme Pro 3D joystick respectively. Last 4 element are Left, Right, Up, Down.
          */
-        bool* ButtonArray;
+        bool* ButtonStates;
 
         /**
          * An array that holds raw axes values on short int array with 
@@ -49,22 +77,25 @@ class Joystick {
         short int* AxesValues; 
 
         /**
-         * Used to get button state given in number parameter.
+         * This method gointo parse raw event data to make able to update class axes and button 
+         * fields which is more undurstandable format.
          */
-        bool _get_button_state(int number);
-
-        /**
-         * Used to get axes values with given number parameter 
-         * (The nunmbers 0, 1, 2, and 3 represent Roll, Pitch, Yaw, and Throttle, respectively)
-         */
-        short int get_axes_value(int number);
+        void parse_event_data();
 
     public:
         /**
          * `Joystick` Class constructur method.
          * This method initialize all members.
+         * @param devica_path: This is joysticks path.
          */
         Joystick(const char* device_path);
+
+        /**
+         * stops to deteached thread that using parse_event_data() used to listen joystick
+         * terminate that detached thread.
+         */
+        ~Joystick();
+
         /**
          * Used to get button state.
          * @param button Button enum field.
@@ -77,6 +108,6 @@ class Joystick {
          * @param axes Axes enum filed.
          * @returns Given axes' value normalized [1, -1].
          */
-        float get_axes_state(Axes axes);
+        float get_axes_value(Axes axes);
 };
 #endif // JOYSTICK

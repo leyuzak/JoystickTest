@@ -1,110 +1,97 @@
-#include "joystick.h"
+#include <linux/joystick.h>
 #include <fcntl.h>
 #include <unistd.h>
+
 #include <iostream>
-#include <cmath>
-#include <errno.h>
 
-Joystick::Joystick(const char* device)
-{
-    fd = open(device, O_RDONLY | O_NONBLOCK);
+#include "joystick.hpp"
 
-    if (fd < 0) {
-        std::cerr << "Joystick açılamadı\n";
+#define LOCK_THIS_SCOPE std::lock_guard<std::mutex> lock(this->data_mutex);
+
+Joystick::Joystick(const char* device_path) : 
+        data_listen_flag(true),
+        ButtonStates(new bool[16]),
+        AxesValues(new short int[4]) {
+
+    this->js_fd = open(device_path, O_RDONLY);
+
+    if (this->js_fd == -1) {
+        std::cerr<<"[ERROR] FROM Joystick::Joystick: "<<device_path<<" has an issue. Exiting.";
+        exit(EXIT_FAILURE);
     }
+
+    // Starts thread to listen data. 
+    this->listening_thread = std::thread([this]{
+        while(this->data_listen_flag){
+            long int bytes = read(this->js_fd, &this->event, sizeof(this->event));
+            if (bytes >0 ) {
+                this->parse_event_data();
+            } else {
+                std::cerr<<"[ERROR] FROM Joystick::Joystick: Could not read data from Joystick device";
+                exit(EXIT_FAILURE);
+            }
+        }
+    });
 }
 
 Joystick::~Joystick() {
-    stop();
-
-    if (fd >= 0)
-        close(fd);
+    this->data_listen_flag = false;
+    this->listening_thread.join();
+    delete[] this->AxesValues;
+    delete[] this->ButtonStates;
 }
 
-void Joystick::start() {
-    if (fd < 0) return;
-    if (running) return;
+void Joystick::parse_event_data() {
+    int event_type      = this->event.type;     // 0x01: JS_EVENT_BUTTON, 0x02: JS_EVENT_AXIS
+    int event_number    = static_cast<int>(this->event.number); // [0-11] for JS_EVENT_BUTTON, [0-5] for JS_EVENT_AXIS
+    short int event_val = this->event.value;    // Event's value; For buttons [0, 1], for axes [-32768, 32767]
+    
+    LOCK_THIS_SCOPE // Locks `parse_event_data()`s entire scope.
 
-    running = true;
-    worker = std::thread(&Joystick::run, this);
-}
-
-void Joystick::stop() {
-    if (!running) return;
-
-    running = false;
-
-    if (worker.joinable())
-        worker.join();
-}
-
-float Joystick::normalize(int value) {
-    return value / 32767.0f;
-}
-
-float Joystick::applyDeadzone(float v) {
-    return (std::fabs(v) < 0.05f) ? 0.0f : v;
-}
-
-void Joystick::run() {
-    struct js_event e;
-
-    while (running) {
-
-        while (true) {
-            ssize_t bytes = read(fd, &e, sizeof(e));
-
-            if (bytes > 0) {
-
-                e.type &= ~JS_EVENT_INIT;
-
-                if (e.type == JS_EVENT_AXIS && e.number < 8) {
-                    axis[e.number] =
-                        applyDeadzone(normalize(e.value));
-                }
-                else if (e.type == JS_EVENT_BUTTON && e.number < 13) {
-                    buttonState[e.number] = (e.value != 0);
-                }
-
+    if (event_type == JS_EVENT_BUTTON) {        // If the event comes from joystick is about buttons
+        this->ButtonStates[event_number] = event_val;   // Updates button state
+    } else if (event_type == JS_EVENT_AXIS) {   // If the event comes from joystick is about axes
+        if (event_number <= 2) {        // Event; if it comes from Yaw(0), Pitch(1), Roll(2)
+            this->AxesValues[event_number] = event_val;     // Updates axis value and mutex.unlock()
+        } else if (event_number == 3) { // Event; if it comes from Throttle(3)
+            this->AxesValues[event_number] = -event_val;
+        } else if (event_number == 4) { // If data comes from LEFT_RIGHT_BUTTONS(4)
+            if (event_val < 0) {
+                this->ButtonStates[Button::BUTTON_LEFT]  = true;
+            } else if (event_val > 0) {
+                this->ButtonStates[Button::BUTTON_RIGHT] = true;
             } else {
-                if (errno == EAGAIN) {
-                    break; 
-                } else {
-                    std::cerr << "Joystick read error\n";
-                    break;
-                }
+                this->ButtonStates[Button::BUTTON_LEFT]  = false;
+                this->ButtonStates[Button::BUTTON_RIGHT] = false;
+            }
+        } else if (event_number == 5) { // If data comes from UP_DOWN_BUTTONS(5)
+            if (event_val < 0) {
+                this->ButtonStates[Button::BUTTON_UP]  = true;
+            } else if (event_val > 0) {
+                this->ButtonStates[Button::BUTTON_DOWN] = true;
+            } else {
+                this->ButtonStates[Button::BUTTON_UP]  = false;
+                this->ButtonStates[Button::BUTTON_DOWN] = false;
             }
         }
-
-        ControlData data;
-        data.x = axis[0];
-        data.y = axis[1];
-        data.twist = axis[2];
-
-        for (int i = 0; i < 13; i++) {
-            data.buttons[i] = buttonState[i];
-        }
-
-       
-        {
-            std::lock_guard<std::mutex> lock(dataMutex);
-            latestData = data;
-        }
-
-       
-        if (callback) {
-            callback(data);
-        }
-
-        usleep(1000);
     }
 }
 
-ControlData Joystick::getLatestData() {
-    std::lock_guard<std::mutex> lock(dataMutex);
-    return latestData;
+bool Joystick::get_button_state(Button button) {
+    LOCK_THIS_SCOPE
+    return this->ButtonStates[button];
 }
 
-void Joystick::setCallback(std::function<void(const ControlData&)> cb) {
-    callback = cb;
+float Joystick::get_axes_value(Axes axis) {
+    LOCK_THIS_SCOPE
+    short int axis_val = this->AxesValues[axis];
+    float normalized_axis_val,x3_applied_axis_val;
+    if (axis == Axes::THROTTLE) {
+        normalized_axis_val = static_cast<float>(axis_val+32768) / 65535.0f;
+        return normalized_axis_val;
+    } else {
+        normalized_axis_val = (axis_val > 0) ? (static_cast<float>(axis_val) / 32767.0f) : (static_cast<float>(axis_val) / 32768.0f);
+    }
+    x3_applied_axis_val = normalized_axis_val*normalized_axis_val*normalized_axis_val;
+    return x3_applied_axis_val;
 }
