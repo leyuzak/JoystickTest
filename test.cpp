@@ -1,7 +1,9 @@
 #include <iostream>
 #include "joystick.hpp"
 
-void EXAMPLE(Joystick* js) {
+int main() {
+    Joystick* js = new Joystick("/dev/input/js0");
+    
     while(true){
         // js->get_button_state usage
         bool b_1    = js->get_button_state(BUTTON_1);
@@ -25,21 +27,14 @@ void EXAMPLE(Joystick* js) {
         float yaw       = js->get_axis_value(YAW);
         float pitch     = js->get_axis_value(PITCH);
         float roll      = js->get_axis_value(ROLL);
-        float throttle  = js->get_axis_value(THROTTLE);
+        float throttle  = js->get_axis_value(SLIDER);
         
         std::cout<<"Btn1: " << b_1 <<"\tBtn2: " << b_2 <<"\tBtn3: " << b_3
                  <<"\tBtn4: " << b_4 <<"\tBtn5: " << b_5 <<"\tBtn6: " << b_6
                  <<"\tBtn7: " << b_7 <<"\tBtn8: " << b_8 <<"\tBtn9: " << b_9
                  <<"\tBtn10: " << b_10 <<"\tBtn11: " << b_11 <<"\tBtn12: " << b_12
                  <<"\tBtnL: " << b_L <<"\tBtnR: " << b_R <<"\tBtnU: " << b_U <<"\tBtnD: " << b_D
-                 <<"\tYaw: " << yaw <<"\tPitch: " << pitch <<"\tRoll: " << roll <<"\tThrottle: " << throttle
+                 <<"\tYaw: " << yaw <<"\tPitch: " << pitch <<"\tRoll: " << roll <<"\tSlider: " << throttle
                  <<std::endl;
     }
-}
-
-
-
-int main() {
-    Joystick* js = new Joystick("/dev/input/js0");
-    EXAMPLE(js);
 }

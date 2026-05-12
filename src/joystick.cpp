@@ -81,11 +81,11 @@ bool Joystick::get_button_state(Button button) {
     return this->ButtonStates[button];
 }
 
-float Joystick::get_axis_value(Axes axis) {
+float Joystick::get_axis_value(Axis axis) {
     LOCK_THIS_SCOPE
     short int axis_val = this->AxesValues[axis];
     float normalized_axis_val,x3_applied_axis_val;
-    if (axis == Axes::THROTTLE) {
+    if (axis == Axis::SLIDER) {
         normalized_axis_val = static_cast<float>(axis_val+32768) / 65535.0f;
         return normalized_axis_val;
     } else {

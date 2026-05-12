@@ -25,11 +25,11 @@ enum Button {
     BUTTON_DOWN  = 15,
 };
 
-enum Axes {
+enum Axis {
     ROLL         = 0,
     PITCH        = 1,
     YAW          = 2,
-    THROTTLE     = 3,
+    SLIDER       = 3,
 };
 
 class Joystick {
@@ -105,9 +105,9 @@ class Joystick {
 
         /**
          * Used to get axes value normalized [1,-1]
-         * @param axes Axes enum filed.
+         * @param axes Axis enum filed.
          * @returns Given axes' value normalized [1, -1].
          */
-        float get_axis_value(Axes axes);
+        float get_axis_value(Axis axes);
 };
 #endif // JOYSTICK
