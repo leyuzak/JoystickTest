@@ -108,6 +108,6 @@ class Joystick {
          * @param axes Axes enum filed.
          * @returns Given axes' value normalized [1, -1].
          */
-        float get_axes_value(Axes axes);
+        float get_axis_value(Axes axes);
 };
 #endif // JOYSTICK

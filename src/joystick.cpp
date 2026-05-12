@@ -1,7 +1,6 @@
 #include <linux/joystick.h>
 #include <fcntl.h>
 #include <unistd.h>
-
 #include <iostream>
 
 #include "joystick.hpp"
@@ -82,7 +81,7 @@ bool Joystick::get_button_state(Button button) {
     return this->ButtonStates[button];
 }
 
-float Joystick::get_axes_value(Axes axis) {
+float Joystick::get_axis_value(Axes axis) {
     LOCK_THIS_SCOPE
     short int axis_val = this->AxesValues[axis];
     float normalized_axis_val,x3_applied_axis_val;
