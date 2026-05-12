@@ -1,127 +1,53 @@
-# JoystickTest
+# Extreme 3D Pro Joystick Data Read and Control Module
 
-# Joystick Library (C++)
+This is an C++ library developed to read data from Extreme 3D Pro Joystick.
 
-Linux ortamında `/dev/input/js0` üzerinden joystick verisi okumak için yazılmış basit ve thread-safe bir C++ kütüphanesi.
-
----
-
-## 🚀 Özellikler
-
-* Non-blocking joystick okuma
-* Thread-safe veri erişimi
-* Callback desteği
-* Enum tabanlı buton kontrolü
-* Axis normalize + deadzone
-
----
-
-## 📁 Dosyalar
-
-* `joystick.h` → kütüphane arayüzü
-* `joystick.cpp` → implementasyon
-* `main.cpp` → örnek kullanım
-* `test.cpp` → basit test
-
----
-
-## ⚙️ Derleme
-
-```bash
-g++ -fPIC -c joystick.cpp -o joystick.o
-g++ -shared -o libjoystick.so joystick.o
-```
-
----
-
-## ▶️ Kullanım (Örnek main)
-
-```cpp
-#include "joystick.h"
-#include <iostream>
-#include <unistd.h>
-
+## Usage
+Here is a basic example to use this class:
+```c++
 int main() {
-    Joystick js;
+    Joystick* js = new Joystick("/dev/input/js0");
 
-    js.start();
+    while(true){
+        // js->get_button_state usage
+        bool b_1  = js->get_button_state(BUTTON_1);
+        bool b_2  = js->get_button_state(BUTTON_2);
+        bool b_3  = js->get_button_state(BUTTON_3);
+        bool b_4  = js->get_button_state(BUTTON_4);
+        bool b_5  = js->get_button_state(BUTTON_5);
+        bool b_6  = js->get_button_state(BUTTON_6);
+        bool b_7  = js->get_button_state(BUTTON_7);
+        bool b_8  = js->get_button_state(BUTTON_8);
+        bool b_9  = js->get_button_state(BUTTON_9);
+        bool b_10 = js->get_button_state(BUTTON_10);
+        bool b_11 = js->get_button_state(BUTTON_11);
+        bool b_12 = js->get_button_state(BUTTON_12);
+        bool b_L  = js->get_button_state(BUTTON_LEFT);
+        bool b_R  = js->get_button_state(BUTTON_RIGHT);
+        bool b_U  = js->get_button_state(BUTTON_UP);
+        bool b_D  = js->get_button_state(BUTTON_DOWN);
 
-    while (true) {
-        auto data = js.getLatestData();
-
-        std::cout << "X: " << data.x
-                  << " Y: " << data.y
-                  << " Twist: " << data.twist << std::endl;
-
-        if (data.isPressed(Button::Trigger)) {
-            std::cout << "Trigger basildi!" << std::endl;
-        }
-
-        usleep(100000); // 100 ms
+        // js->get_axis_value usage
+        float yaw      = js->get_axis_value(YAW);
+        float pitch    = js->get_axis_value(PITCH);
+        float roll     = js->get_axis_value(ROLL);
+        float throttle = js->get_axis_value(SLIDER);
     }
-
-    js.stop();
 }
 ```
 
+As shown above, it is easy to use. 
+To get buttons' value just use `get_button_state()` method with parameter `Button` which you want to find out.\
+Likewise, to get axes value just use `get_axis_value()` method with parameter `Axis`.
+
+**To get more about `Button` and `Axis`, check out below schemas.**
+
+![`Button` parameter usage schema](assets/JS_TOP_VIEW_for_buttons.png)
+![`Axis` parameter usage schema](assets/JS_TOP_VIEW_for_axes.png)
 ---
 
-## 🧠 Nasıl Çalışır?
-
-* `start()` → ayrı thread başlatır
-* joystick sürekli okunur
-* veri `ControlData` içine yazılır
-* `getLatestData()` ile çekilir
-
----
-
-## 🎯 Buton Kullanımı
-
-```cpp
-if (data.isPressed(Button::Thumb)) {
-    // işlem yap
-}
-```
-
----
-
-## 📌 Axis Değerleri
-
-| Axis  | Açıklama   |
-| ----- | ---------- |
-| x     | sağ-sol    |
-| y     | ileri-geri |
-| twist | dönme      |
-
-Değer aralığı:
-
-```
--1.0  →  1.0
-```
-
----
-
-## ⚠️ Gereksinimler
-
-* Linux
-* `/dev/input/js0` erişimi
-
-Gerekirse:
-
+If you want to use this library, firstly, must download this package.
 ```bash
-sudo chmod 666 /dev/input/js0
+sudo apt install joystick
 ```
-
----
-
-## 🔥 Notlar
-
-* Deadzone: 0.05
-* Maksimum 13 buton destekli
-* 8 axis destekli
-
----
-
-## 👨‍💻 Geliştirici
-
-leyuzak
+And then include into your code.
