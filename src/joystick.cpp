@@ -7,17 +7,29 @@
 
 #define LOCK_THIS_SCOPE std::lock_guard<std::mutex> lock(this->data_mutex);
 
-Joystick::Joystick(const char* device_path) : 
+Joystick::Joystick(const char* device_path, AI* ai) : 
         data_listen_flag(true),
         ButtonStates(new bool[16]),
         AxesValues(new short int[4]) {
 
     this->js_fd = open(device_path, O_RDONLY);
+    this->ai = ai;
 
     if (this->js_fd == -1) {
         std::cerr<<"[ERROR] FROM Joystick::Joystick: "<<device_path<<" has an issue. Exiting.";
         exit(EXIT_FAILURE);
     }
+
+    // Starts to manage recording audio by using `AI::start_recording()` and `AI::stop_recording()`
+    this->AI_thread = std::thread([this]{
+        while (this->data_listen_flag) {
+            if (this->ButtonStates[Button::BUTTON_3]) {
+                this->ai->start_recording();
+            } else if (this->ai->get_is_recording()) {
+                this->ai->stop_recording();
+            }
+        }
+    });
 
     // Starts thread to listen data. 
     this->listening_thread = std::thread([this]{
@@ -36,6 +48,8 @@ Joystick::Joystick(const char* device_path) :
 Joystick::~Joystick() {
     this->data_listen_flag = false;
     this->listening_thread.join();
+    this->AI_thread.join();
+
     delete[] this->AxesValues;
     delete[] this->ButtonStates;
 }
