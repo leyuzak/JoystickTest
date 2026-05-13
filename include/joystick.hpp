@@ -5,6 +5,8 @@
 #include <atomic>
 #include <thread>
 
+#include "AIClass.hpp"
+
 enum Button {
     BUTTON_1     = 0,
     BUTTON_2     = 1,
@@ -35,6 +37,11 @@ enum Axis {
 class Joystick {
     private:
         /**
+         * This is an instance of AI class.
+         */
+        AI* ai; 
+
+        /**
          * This is a file descripter it will taken from open() and
          * it is necessary for read() methods which both are going to use joystick's data.
          */
@@ -45,6 +52,11 @@ class Joystick {
          * joystick::parse_event_data() in a while loop.
          */
         std::thread listening_thread;
+
+        /**
+         * This thread manages recording audio by using `AI::start_recording()` and `AI::stop_recording()`
+         */
+        std::thread AI_thread;
 
         /**
          * This struct necessary to read data by `<linux/joystick.h>`
@@ -88,7 +100,7 @@ class Joystick {
          * This method initialize all members.
          * @param devica_path: This is joysticks path.
          */
-        Joystick(const char* device_path);
+        Joystick(const char* device_path, AI* ai);
 
         /**
          * stops to deteached thread that using parse_event_data() used to listen joystick
